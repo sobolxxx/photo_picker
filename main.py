@@ -5,8 +5,9 @@ import json
 import shutil
 from PySide6.QtWidgets import (QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox, 
                                  QInputDialog, QDialog, QVBoxLayout, QLineEdit, QRadioButton, 
-                                 QButtonGroup, QDialogButtonBox, QPushButton, QHBoxLayout)
-from PySide6.QtGui import QAction, QPixmap
+                                 QButtonGroup, QDialogButtonBox, QPushButton, QHBoxLayout,
+                                 QWidget, QSpacerItem, QSizePolicy)
+from PySide6.QtGui import QAction, QPixmap, QTransform
 from PySide6.QtCore import Qt
 
 class FileExistsDialog(QDialog):
@@ -79,6 +80,7 @@ class PhotoPickerApp(QMainWindow):
         self.incremental_counter = 1
         self.photo_files = []
         self.current_photo_index = -1
+        self.current_rotation_angle = 0
 
         self.setup_ui()
 
@@ -92,10 +94,39 @@ class PhotoPickerApp(QMainWindow):
             return [".jpg", ".jpeg", ".png"] # fallback
 
     def setup_ui(self):
-        # Central widget for image display
-        self.image_label = QLabel("Open a folder to view photos", self)
+        # Central widget containing the image and the overlay buttons
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
+        
+        # Main layout for the central widget
+        main_layout = QVBoxLayout(self.central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Label for image display
+        self.image_label = QLabel("Open a folder to view photos", self.central_widget)
         self.image_label.setAlignment(Qt.AlignCenter)
-        self.setCentralWidget(self.image_label)
+        main_layout.addWidget(self.image_label)
+
+        # Overlay buttons layout (bottom center)
+        overlay_layout = QHBoxLayout()
+        overlay_layout.setContentsMargins(10, 10, 10, 10)
+        
+        self.btn_rotate_left = QPushButton("Rotate Left")
+        self.btn_rotate_right = QPushButton("Rotate Right")
+        
+        self.btn_rotate_left.clicked.connect(lambda: self.rotate_photo(-90))
+        self.btn_rotate_right.clicked.connect(lambda: self.rotate_photo(90))
+
+        # Add spacers to center the buttons
+        overlay_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        overlay_layout.addWidget(self.btn_rotate_left)
+        overlay_layout.addWidget(self.btn_rotate_right)
+        overlay_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        
+        # We add the overlay_layout to the main_layout, so it will sit beneath the QLabel
+        # In this simplistic layout, it's technically below rather than an absolute overlay.
+        # But for UX it serves perfectly well to be visible alongside the image.
+        main_layout.addLayout(overlay_layout)
 
         # Menu Bar
         menu_bar = self.menuBar()
@@ -115,6 +146,7 @@ class PhotoPickerApp(QMainWindow):
         folder_path = QFileDialog.getExistingDirectory(self, "Select Source Folder")
         if folder_path:
             self.source_folder = folder_path
+            self.current_rotation_angle = 0
             self.load_photos_from_folder()
 
     def open_destination_folder(self):
@@ -180,6 +212,12 @@ class PhotoPickerApp(QMainWindow):
             self.image_label.setText("No photos found in the selected folder.")
             self.current_photo_index = -1
 
+    def rotate_photo(self, angle):
+        if not self.photo_files:
+            return
+        self.current_rotation_angle = (self.current_rotation_angle + angle) % 360
+        self.display_current_photo()
+
     def display_current_photo(self):
         if not self.photo_files:
             return
@@ -196,8 +234,12 @@ class PhotoPickerApp(QMainWindow):
             photo_path = self.photo_files[self.current_photo_index]
             pixmap = QPixmap(photo_path)
             
+            # Apply rotation
+            if self.current_rotation_angle != 0:
+                transform = QTransform().rotate(self.current_rotation_angle)
+                pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+
             # Scale pixmap to fit the label while keeping aspect ratio
-            # Use label's size or window size if label is not fully laid out
             scaled_pixmap = pixmap.scaled(
                 self.image_label.size(), 
                 Qt.KeepAspectRatio, 
@@ -213,10 +255,12 @@ class PhotoPickerApp(QMainWindow):
         if event.key() == Qt.Key_Left:
             if self.current_photo_index >= 0:
                 self.current_photo_index -= 1
+                self.current_rotation_angle = 0
                 self.display_current_photo()
         elif event.key() == Qt.Key_Right:
             if self.current_photo_index < len(self.photo_files):
                 self.current_photo_index += 1
+                self.current_rotation_angle = 0
                 self.display_current_photo()
         elif event.key() == Qt.Key_Space:
             self.copy_current_photo()
@@ -261,7 +305,17 @@ class PhotoPickerApp(QMainWindow):
                         return # Cancelled custom name input
             
             try:
-                shutil.copy2(source_path, destination_path)
+                if self.current_rotation_angle != 0:
+                    # Save the rotated pixmap instead of a byte copy
+                    pixmap = QPixmap(source_path)
+                    transform = QTransform().rotate(self.current_rotation_angle)
+                    rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
+                    
+                    rotated_pixmap.save(destination_path)
+                else:
+                    # Original file copy is faster and preserves metadata
+                    shutil.copy2(source_path, destination_path)
+                    
                 print(f"Copied to {destination_path}")
                 if self.naming_strategy == "incremental":
                     self.incremental_counter += 1
