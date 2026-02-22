@@ -64,7 +64,18 @@ class PhotoPickerApp(QMainWindow):
             self.current_photo_index = -1
 
     def display_current_photo(self):
-        if 0 <= self.current_photo_index < len(self.photo_files):
+        if not self.photo_files:
+            return
+
+        if self.current_photo_index < 0:
+            self.image_label.clear()
+            self.image_label.setText("start")
+            self.setWindowTitle("Photo Picker - start")
+        elif self.current_photo_index >= len(self.photo_files):
+            self.image_label.clear()
+            self.image_label.setText("end")
+            self.setWindowTitle("Photo Picker - end")
+        else:
             photo_path = self.photo_files[self.current_photo_index]
             pixmap = QPixmap(photo_path)
             
@@ -77,6 +88,19 @@ class PhotoPickerApp(QMainWindow):
             )
             self.image_label.setPixmap(scaled_pixmap)
             self.setWindowTitle(f"Photo Picker - {os.path.basename(photo_path)}")
+
+    def keyPressEvent(self, event):
+        if not self.photo_files:
+            return
+            
+        if event.key() == Qt.Key_Left:
+            if self.current_photo_index >= 0:
+                self.current_photo_index -= 1
+                self.display_current_photo()
+        elif event.key() == Qt.Key_Right:
+            if self.current_photo_index < len(self.photo_files):
+                self.current_photo_index += 1
+                self.display_current_photo()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
