@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 import json
 from PySide6.QtWidgets import (QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox, 
                                  QInputDialog, QDialog, QVBoxLayout, QLineEdit, QRadioButton, 
@@ -117,7 +118,28 @@ class PhotoPickerApp(QMainWindow):
             prefix, strategy = dialog.get_values()
             self.photo_prefix = prefix
             self.naming_strategy = strategy
-            self.incremental_counter = 1  # reset counter when new destination is chosen
+            
+            if self.naming_strategy == "incremental":
+                self._set_initial_incremental_counter()
+            else:
+                self.incremental_counter = 1
+
+
+    def _set_initial_incremental_counter(self):
+        max_num = 0
+        if self.destination_folder and os.path.exists(self.destination_folder):
+            # Escape prefix in case it contains regex special characters like '.' or '-'
+            pattern = re.compile(rf"^{re.escape(self.photo_prefix)}(\d+)")
+            
+            for file in os.listdir(self.destination_folder):
+                # Match the pattern at the start of the filename
+                match = pattern.match(file)
+                if match:
+                    # group(1) captures the digits immediately following the prefix
+                    num_str = match.group(1)
+                    max_num = max(max_num, int(num_str))
+                    
+        self.incremental_counter = max_num + 1
 
     def load_photos_from_folder(self):
         self.photo_files = []
