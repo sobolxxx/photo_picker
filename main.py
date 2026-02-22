@@ -5,9 +5,33 @@ import json
 import shutil
 from PySide6.QtWidgets import (QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox, 
                                  QInputDialog, QDialog, QVBoxLayout, QLineEdit, QRadioButton, 
-                                 QButtonGroup, QDialogButtonBox)
+                                 QButtonGroup, QDialogButtonBox, QPushButton, QHBoxLayout)
 from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtCore import Qt
+
+class FileExistsDialog(QDialog):
+    def __init__(self, filename, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("File Exists")
+        
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(f"The file '{filename}' already exists.\nDo you want to overwrite it?"))
+        
+        button_layout = QHBoxLayout()
+        
+        self.btn_yes = QPushButton("Yes")
+        self.btn_no = QPushButton("No")
+        self.btn_custom = QPushButton("Custom")
+        
+        button_layout.addWidget(self.btn_yes)
+        button_layout.addWidget(self.btn_no)
+        button_layout.addWidget(self.btn_custom)
+        
+        layout.addLayout(button_layout)
+        
+        self.btn_yes.clicked.connect(lambda: self.done(1))
+        self.btn_no.clicked.connect(lambda: self.done(0))
+        self.btn_custom.clicked.connect(lambda: self.done(2))
 
 class NamingStrategyDialog(QDialog):
     def __init__(self, parent=None):
@@ -217,6 +241,24 @@ class PhotoPickerApp(QMainWindow):
                 new_filename = f"{self.photo_prefix}{original_filename}"
 
             destination_path = os.path.join(self.destination_folder, new_filename)
+            
+            if os.path.exists(destination_path):
+                dialog = FileExistsDialog(new_filename, self)
+                result = dialog.exec()
+                
+                if result == 0: # No
+                    return
+                elif result == 2: # Custom
+                    custom_name, ok = QInputDialog.getText(
+                        self, 
+                        "Custom Filename", 
+                        "Enter new filename (including extension):", 
+                        text=new_filename
+                    )
+                    if ok and custom_name:
+                        destination_path = os.path.join(self.destination_folder, custom_name)
+                    else:
+                        return # Cancelled custom name input
             
             try:
                 shutil.copy2(source_path, destination_path)
