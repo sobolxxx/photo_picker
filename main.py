@@ -2,6 +2,7 @@ import sys
 import os
 import re
 import json
+import shutil
 from PySide6.QtWidgets import (QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox, 
                                  QInputDialog, QDialog, QVBoxLayout, QLineEdit, QRadioButton, 
                                  QButtonGroup, QDialogButtonBox)
@@ -193,6 +194,37 @@ class PhotoPickerApp(QMainWindow):
             if self.current_photo_index < len(self.photo_files):
                 self.current_photo_index += 1
                 self.display_current_photo()
+        elif event.key() == Qt.Key_Space:
+            self.copy_current_photo()
+
+    def copy_current_photo(self):
+        if not self.source_folder:
+            QMessageBox.warning(self, "Missing Source Folder", "Please open a Source Folder first.")
+            return
+            
+        if not self.destination_folder:
+            QMessageBox.warning(self, "Missing Destination Folder", "Please open a Destination Folder first.")
+            return
+
+        if 0 <= self.current_photo_index < len(self.photo_files):
+            source_path = self.photo_files[self.current_photo_index]
+            original_filename = os.path.basename(source_path)
+            name, ext = os.path.splitext(original_filename)
+
+            if self.naming_strategy == "incremental":
+                new_filename = f"{self.photo_prefix}{self.incremental_counter}{ext}"
+            else: # default
+                new_filename = f"{self.photo_prefix}{original_filename}"
+
+            destination_path = os.path.join(self.destination_folder, new_filename)
+            
+            try:
+                shutil.copy2(source_path, destination_path)
+                print(f"Copied to {destination_path}")
+                if self.naming_strategy == "incremental":
+                    self.incremental_counter += 1
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to copy file:\n{e}")
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
