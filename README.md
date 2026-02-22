@@ -4,15 +4,7 @@ A lightweight, open-source tool for rapidly sorting high-volume photo libraries.
 # How to run
 ```bash
 cd photo_picker
-python3 -m venv venv
-source venv/bin/activate
-python3 -m pip install -r requirements.txt
-python3 main.py
-```
-
-When finished
-```bash
-deactivate
+./run.sh
 ```
 
 # License
