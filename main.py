@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox
 from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtCore import Qt
 
@@ -14,6 +14,7 @@ class PhotoPickerApp(QMainWindow):
 
         # State
         self.source_folder = ""
+        self.destination_folder = ""
         self.photo_files = []
         self.current_photo_index = -1
 
@@ -43,11 +44,35 @@ class PhotoPickerApp(QMainWindow):
         open_source_action.triggered.connect(self.open_source_folder)
         file_menu.addAction(open_source_action)
 
+        # Open Destination Folder Action
+        open_dest_action = QAction("Open Destination Folder", self)
+        open_dest_action.triggered.connect(self.open_destination_folder)
+        file_menu.addAction(open_dest_action)
+
     def open_source_folder(self):
         folder_path = QFileDialog.getExistingDirectory(self, "Select Source Folder")
         if folder_path:
             self.source_folder = folder_path
             self.load_photos_from_folder()
+
+    def open_destination_folder(self):
+        folder_path = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
+        if folder_path:
+            # Check if directory is empty
+            if os.listdir(folder_path):
+                msg_box = QMessageBox()
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setWindowTitle("Folder Not Empty")
+                msg_box.setText("The selected target folder is not empty.")
+                msg_box.setInformativeText("Are you sure you want to use it as the destination folder?")
+                msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+                msg_box.setDefaultButton(QMessageBox.No)
+                
+                ret = msg_box.exec()
+                if ret == QMessageBox.Yes:
+                    self.destination_folder = folder_path
+            else:
+                self.destination_folder = folder_path
 
     def load_photos_from_folder(self):
         self.photo_files = []
