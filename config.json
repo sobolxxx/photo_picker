@@ -1,0 +1,10 @@
+{
+  "allowed_extensions": [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".webp"
+  ]
+}
