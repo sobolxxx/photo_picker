@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox, QInputDialog
 from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtCore import Qt
 
@@ -15,6 +15,7 @@ class PhotoPickerApp(QMainWindow):
         # State
         self.source_folder = ""
         self.destination_folder = ""
+        self.photo_prefix = ""
         self.photo_files = []
         self.current_photo_index = -1
 
@@ -69,10 +70,21 @@ class PhotoPickerApp(QMainWindow):
                 msg_box.setDefaultButton(QMessageBox.No)
                 
                 ret = msg_box.exec()
-                if ret == QMessageBox.Yes:
-                    self.destination_folder = folder_path
-            else:
-                self.destination_folder = folder_path
+                if ret != QMessageBox.Yes:
+                    return # User aborted
+
+            self._ask_for_prefix_and_set_destination(folder_path)
+
+    def _ask_for_prefix_and_set_destination(self, folder_path):
+        prefix, ok = QInputDialog.getText(
+            self, 
+            "File Prefix", 
+            "Enter prefix for all photos copied to this folder:", 
+            text=""
+        )
+        if ok:
+            self.destination_folder = folder_path
+            self.photo_prefix = prefix
 
     def load_photos_from_folder(self):
         self.photo_files = []
