@@ -1,9 +1,42 @@
 import sys
 import os
 import json
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox, QInputDialog
+from PySide6.QtWidgets import (QApplication, QMainWindow, QLabel, QFileDialog, QMessageBox, 
+                                 QInputDialog, QDialog, QVBoxLayout, QLineEdit, QRadioButton, 
+                                 QButtonGroup, QDialogButtonBox)
 from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtCore import Qt
+
+class NamingStrategyDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Naming Strategy")
+        
+        layout = QVBoxLayout(self)
+        
+        layout.addWidget(QLabel("Enter prefix for all photos copied to this folder:"))
+        self.prefix_input = QLineEdit(self)
+        layout.addWidget(self.prefix_input)
+        
+        self.strategy_group = QButtonGroup(self)
+        
+        self.radio_default = QRadioButton("keep default name")
+        self.radio_default.setChecked(True)
+        self.strategy_group.addButton(self.radio_default, 0)
+        layout.addWidget(self.radio_default)
+        
+        self.radio_incremental = QRadioButton("incremental")
+        self.strategy_group.addButton(self.radio_incremental, 1)
+        layout.addWidget(self.radio_incremental)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        
+    def get_values(self):
+        strategy = "default" if self.radio_default.isChecked() else "incremental"
+        return self.prefix_input.text(), strategy
 
 class PhotoPickerApp(QMainWindow):
     def __init__(self):
@@ -16,6 +49,8 @@ class PhotoPickerApp(QMainWindow):
         self.source_folder = ""
         self.destination_folder = ""
         self.photo_prefix = ""
+        self.naming_strategy = "default"
+        self.incremental_counter = 1
         self.photo_files = []
         self.current_photo_index = -1
 
@@ -73,18 +108,16 @@ class PhotoPickerApp(QMainWindow):
                 if ret != QMessageBox.Yes:
                     return # User aborted
 
-            self._ask_for_prefix_and_set_destination(folder_path)
-
-    def _ask_for_prefix_and_set_destination(self, folder_path):
-        prefix, ok = QInputDialog.getText(
-            self, 
-            "File Prefix", 
-            "Enter prefix for all photos copied to this folder:", 
-            text=""
-        )
-        if ok:
             self.destination_folder = folder_path
+            self._ask_for_prefix_and_set_destination()
+
+    def _ask_for_prefix_and_set_destination(self):
+        dialog = NamingStrategyDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            prefix, strategy = dialog.get_values()
             self.photo_prefix = prefix
+            self.naming_strategy = strategy
+            self.incremental_counter = 1  # reset counter when new destination is chosen
 
     def load_photos_from_folder(self):
         self.photo_files = []
