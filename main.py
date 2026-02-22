@@ -81,6 +81,7 @@ class PhotoPickerApp(QMainWindow):
         self.photo_files = []
         self.current_photo_index = -1
         self.current_rotation_angle = 0
+        self.session_copied_files = set()
 
         self.setup_ui()
 
@@ -119,6 +120,11 @@ class PhotoPickerApp(QMainWindow):
 
         # Add spacers to center the buttons
         overlay_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("font-weight: bold;")
+        overlay_layout.addWidget(self.status_label)
+        
         overlay_layout.addWidget(self.btn_rotate_left)
         overlay_layout.addWidget(self.btn_rotate_right)
         overlay_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
@@ -247,6 +253,40 @@ class PhotoPickerApp(QMainWindow):
             )
             self.image_label.setPixmap(scaled_pixmap)
             self.setWindowTitle(f"Photo Picker - {os.path.basename(photo_path)}")
+            self.update_copy_indicator()
+
+    def update_copy_indicator(self):
+        if not self.photo_files or self.current_photo_index < 0 or self.current_photo_index >= len(self.photo_files):
+            self.status_label.setText("")
+            return
+
+        source_path = self.photo_files[self.current_photo_index]
+        if source_path in self.session_copied_files:
+            self.set_indicator_status(True)
+            return
+
+        if not self.destination_folder or not os.path.exists(self.destination_folder):
+            self.set_indicator_status(False)
+            return
+
+        original_filename = os.path.basename(source_path)
+        name, ext = os.path.splitext(original_filename)
+
+        if self.naming_strategy == "incremental":
+            new_filename = f"{self.photo_prefix}{self.incremental_counter}{ext}"
+        else: # default
+            new_filename = f"{self.photo_prefix}{original_filename}"
+
+        destination_path = os.path.join(self.destination_folder, new_filename)
+        self.set_indicator_status(os.path.exists(destination_path))
+
+    def set_indicator_status(self, copied):
+        if copied:
+            self.status_label.setText("Status: Copied")
+            self.status_label.setStyleSheet("color: green; font-weight: bold;")
+        else:
+            self.status_label.setText("Status: Not Copied")
+            self.status_label.setStyleSheet("color: gray; font-weight: bold;")
 
     def keyPressEvent(self, event):
         if not self.photo_files:
@@ -281,7 +321,7 @@ class PhotoPickerApp(QMainWindow):
 
             if self.naming_strategy == "incremental":
                 new_filename = f"{self.photo_prefix}{self.incremental_counter}{ext}"
-            else: # default
+            else:
                 new_filename = f"{self.photo_prefix}{original_filename}"
 
             destination_path = os.path.join(self.destination_folder, new_filename)
@@ -317,6 +357,9 @@ class PhotoPickerApp(QMainWindow):
                     shutil.copy2(source_path, destination_path)
                     
                 print(f"Copied to {destination_path}")
+                self.session_copied_files.add(source_path)
+                self.set_indicator_status(True)
+                
                 if self.naming_strategy == "incremental":
                     self.incremental_counter += 1
             except Exception as e:
