@@ -80,7 +80,7 @@ class PhotoPickerApp(QMainWindow):
         self.incremental_counter = 1
         self.photo_files = []
         self.current_photo_index = -1
-        self.current_rotation_angle = 0
+        self.photo_rotations = {}
         self.session_copied_files = set()
 
         self.setup_ui()
@@ -152,7 +152,7 @@ class PhotoPickerApp(QMainWindow):
         folder_path = QFileDialog.getExistingDirectory(self, "Select Source Folder")
         if folder_path:
             self.source_folder = folder_path
-            self.current_rotation_angle = 0
+            self.photo_rotations = {}
             self.load_photos_from_folder()
 
     def open_destination_folder(self):
@@ -221,7 +221,9 @@ class PhotoPickerApp(QMainWindow):
     def rotate_photo(self, angle):
         if not self.photo_files:
             return
-        self.current_rotation_angle = (self.current_rotation_angle + angle) % 360
+        photo_path = self.photo_files[self.current_photo_index]
+        current_angle = self.photo_rotations.get(photo_path, 0)
+        self.photo_rotations[photo_path] = (current_angle + angle) % 360
         self.display_current_photo()
 
     def display_current_photo(self):
@@ -241,8 +243,9 @@ class PhotoPickerApp(QMainWindow):
             pixmap = QPixmap(photo_path)
             
             # Apply rotation
-            if self.current_rotation_angle != 0:
-                transform = QTransform().rotate(self.current_rotation_angle)
+            current_rotation_angle = self.photo_rotations.get(photo_path, 0)
+            if current_rotation_angle != 0:
+                transform = QTransform().rotate(current_rotation_angle)
                 pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
 
             # Scale pixmap to fit the label while keeping aspect ratio
@@ -295,12 +298,10 @@ class PhotoPickerApp(QMainWindow):
         if event.key() == Qt.Key_Left:
             if self.current_photo_index >= 0:
                 self.current_photo_index -= 1
-                self.current_rotation_angle = 0
                 self.display_current_photo()
         elif event.key() == Qt.Key_Right:
             if self.current_photo_index < len(self.photo_files):
                 self.current_photo_index += 1
-                self.current_rotation_angle = 0
                 self.display_current_photo()
         elif event.key() == Qt.Key_Space:
             self.copy_current_photo()
@@ -345,10 +346,11 @@ class PhotoPickerApp(QMainWindow):
                         return # Cancelled custom name input
             
             try:
-                if self.current_rotation_angle != 0:
+                current_rotation_angle = self.photo_rotations.get(source_path, 0)
+                if current_rotation_angle != 0:
                     # Save the rotated pixmap instead of a byte copy
                     pixmap = QPixmap(source_path)
-                    transform = QTransform().rotate(self.current_rotation_angle)
+                    transform = QTransform().rotate(current_rotation_angle)
                     rotated_pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
                     
                     rotated_pixmap.save(destination_path)
